@@ -5,7 +5,7 @@ import datetime
 import threading
 import time
 from config import DB_PATH
-from database import setup_db
+from database import init_db
 
 app = Flask(__name__)
 last_refresh_time = "Never"
@@ -42,7 +42,7 @@ def auto_sync_loop():
 
 if __name__ == '__main__':
     print(f"Ensuring database exists...")
-    setup_db()
+    init_db()
     print(f"Starting auto-sync daemon...")
     threading.Thread(target=auto_sync_loop, daemon=True).start()
     print(f"Starting dashboard...")
