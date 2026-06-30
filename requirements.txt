@@ -1,0 +1,4 @@
+Flask
+groq
+google-genai
+requests

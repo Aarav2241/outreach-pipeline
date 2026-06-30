@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outreach Pipeline Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0a;
+            --bg-panel: #111111;
+            --border-color: #333333;
+            --accent: #00ffcc;
+            --text-main: #e0e0e0;
+            --text-muted: #888888;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: 
+                linear-gradient(var(--border-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-position: -1px -1px;
+        }
+        .font-mono { font-family: 'Fira Code', monospace; }
+        .panel { background-color: var(--bg-panel); border: 1px solid var(--border-color); }
+        .table-header { background-color: #000000; border-bottom: 2px solid var(--accent); }
+        .table-row { border-bottom: 1px solid var(--border-color); transition: background-color 0.15s ease; }
+        .table-row:hover { background-color: #1a1a1a; }
+        .btn-tech {
+            background-color: transparent; color: var(--accent); border: 1px solid var(--accent);
+            padding: 4px 12px; font-family: 'Fira Code', monospace; font-size: 0.85rem;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .btn-tech:hover { background-color: var(--accent); color: #000; }
+        .select-tech {
+            background-color: #000; color: var(--accent); border: 1px solid var(--border-color);
+            padding: 4px 8px; font-family: 'Fira Code', monospace; font-size: 0.75rem;
+            outline: none;
+        }
+        .select-tech:focus { border-color: var(--accent); }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6 flex justify-between items-end border-b border-[#333] pb-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white mb-1"><span class="text-[var(--accent)]">></span> Pipeline Data</h1>
+                <p class="text-[var(--text-muted)] font-mono text-sm">Status: Operational | Leads: {{ leads|length }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-[var(--text-muted)] font-mono text-xs mb-2">Last Refreshed: <span id="lastRefreshTime" class="text-white">{{ last_refresh }}</span></p>
+                <button onclick="triggerSync()" class="btn-tech px-4 py-2">> Sync New Leads</button>
+            </div>
+        </header>
+
+        <!-- Filters -->
+        <div class="mb-6 flex gap-4 bg-[#111] p-4 border border-[#333]">
+            <div class="flex items-center gap-2">
+                <label class="font-mono text-xs text-gray-500 uppercase">Age:</label>
+                <input type="text" id="filterAge" onkeyup="filterTable()" placeholder=">= 5 yrs" class="select-tech w-24">
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="font-mono text-xs text-gray-500 uppercase">Type:</label>
+                <input type="text" id="filterType" onkeyup="filterTable()" placeholder="MNC/Listed" class="select-tech w-32">
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="font-mono text-xs text-gray-500 uppercase">Global:</label>
+                <input type="text" id="filterGlobal" onkeyup="filterTable()" placeholder=">= 2" class="select-tech w-20">
+            </div>
+        </div>
+
+        <div class="panel overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap" id="leadsTable">
+                <thead class="table-header text-gray-400 font-mono text-xs uppercase tracking-wider">
+                    <tr>
+                        <th class="px-4 py-4">Company</th>
+                        <th class="px-4 py-4">Source</th>
+                        <th class="px-4 py-4">Age</th>
+                        <th class="px-4 py-4">Type</th>
+                        <th class="px-4 py-4">Global Pres.</th>
+                        <th class="px-4 py-4">Target Individuals</th>
+                        <th class="px-4 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="font-mono text-xs">
+                    {% for lead in leads %}
+                    <tr class="table-row">
+                        <td class="px-4 py-3 font-semibold text-white text-sm">{{ lead.company_name }}</td>
+                        <td class="px-4 py-3 text-gray-400">{{ lead.funnel_source }}</td>
+                        <td class="px-4 py-3 text-gray-300 age-col">{{ lead.company_age }}</td>
+                        <td class="px-4 py-3 text-gray-300 type-col">{{ lead.company_type }}</td>
+                        <td class="px-4 py-3 text-gray-300 global-col">{{ lead.global_presence }}</td>
+                        <td class="px-4 py-3 text-gray-300">
+                            {% if lead.contact_emails and lead.contact_emails != 'N/A' %}
+                                {% for email in lead.contact_emails.split(', ') %}
+                                    <div class="mb-1">{{ email }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-gray-600">None found</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <a href="{{ lead.linkedin_url }}" target="_blank" class="btn-tech mb-1 inline-block" style="text-decoration: none;">LinkedIn</a>
+                            <button class="btn-tech inline-block" 
+                                    data-company="{{ lead.company_name }}" 
+                                    data-emails="{{ lead.contact_emails }}"
+                                    onclick="openEmailModal(this)">Email</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Email Modal -->
+    <div id="emailModal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+        <div class="panel p-6 w-full max-w-2xl text-sm border border-[var(--accent)]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white font-mono">> Email Draft</h2>
+                <button onclick="closeEmailModal()" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-[var(--accent)] font-mono text-xs uppercase">To (Extracted Emails):</label>
+                    <button onclick="copyToClipboard('modalEmails', this)" class="btn-tech text-[10px] px-2 py-1">Copy</button>
+                </div>
+                <input type="text" id="modalEmails" class="w-full bg-[#000] border border-[#333] text-white p-2 font-mono text-xs focus:outline-none" readonly>
+            </div>
+
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-[var(--accent)] font-mono text-xs uppercase">Subject:</label>
+                    <button onclick="copyToClipboard('modalSubject', this)" class="btn-tech text-[10px] px-2 py-1">Copy</button>
+                </div>
+                <input type="text" id="modalSubject" class="w-full bg-[#000] border border-[#333] text-white p-2 font-mono text-xs focus:outline-none" readonly>
+            </div>
+
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-[var(--accent)] font-mono text-xs uppercase">Body:</label>
+                    <button onclick="copyToClipboard('modalBody', this)" class="btn-tech text-[10px] px-2 py-1">Copy</button>
+                </div>
+                <textarea id="modalBody" class="w-full bg-[#000] border border-[#333] text-gray-300 p-2 font-sans text-sm h-64 focus:outline-none" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const templateBody = `Hello Team,
+
+Greetings from the Placement Cell, IIT Bombay!
+
+I, Aarav Singhal, am Internship Coordinator at IIT Bombay. On behalf of the Practical Training Cell of IIT Bombay, I cordially invite {company} to participate in the summer internship recruitment process for the year 2026-27.
+
+At IIT Bombay, students take up summer internships to gain first-hand experience in the professional world after the end of the second or third year of their studies. We can vouch for the credibility and genuineness of the students and would also like to add that being among the best students in India, they are not only good academically but also possess an excellent ability to solve problems and apply themselves to practical situations.
+
+The duration of the summer internship will be of 8-9 weeks, starting in the second week of May and extending till mid July.
+
+I would be grateful if you could inform us of the summer internship opportunities with you this year so that the students of IIT Bombay can hope to be a part of your prestigious organization.
+
+In case of any queries, feel free to reach out to me at the undersigned number.`;
+
+        function openEmailModal(btn) {
+            const company = btn.getAttribute('data-company');
+            const emailsRaw = btn.getAttribute('data-emails');
+            
+            let emailList = [];
+            if (emailsRaw && emailsRaw !== 'N/A') {
+                const parts = emailsRaw.split(',');
+                for (let p of parts) {
+                    if (p.includes('->')) {
+                        emailList.push(p.split('->')[1].trim());
+                    } else {
+                        emailList.push(p.trim());
+                    }
+                }
+            }
+            const emailsString = emailList.join(', ');
+            const subject = `IIT Bombay | Inviting ${company} for Internship Recruitment 2026-27`;
+            const body = templateBody.replace(/{company}/g, company);
+            
+            document.getElementById('modalSubject').value = subject;
+            document.getElementById('modalBody').value = body;
+            document.getElementById('modalEmails').value = emailsString;
+            
+            document.getElementById('emailModal').classList.remove('hidden');
+        }
+
+        function closeEmailModal() {
+            document.getElementById('emailModal').classList.add('hidden');
+        }
+
+        function copyToClipboard(elementId, btn) {
+            const el = document.getElementById(elementId);
+            el.select();
+            document.execCommand('copy');
+            
+            const originalText = btn.innerText;
+            btn.innerText = "Copied!";
+            btn.style.backgroundColor = "var(--accent)";
+            btn.style.color = "#000";
+            
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.backgroundColor = "transparent";
+                btn.style.color = "var(--accent)";
+            }, 1500);
+        }
+
+        function filterTable() {
+            let filterAge = document.getElementById("filterAge").value.toLowerCase();
+            let filterType = document.getElementById("filterType").value.toLowerCase();
+            let filterGlobal = document.getElementById("filterGlobal").value.toLowerCase();
+
+            let tr = document.getElementById("leadsTable").getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let tdAge = tr[i].querySelector(".age-col").textContent.toLowerCase();
+                let tdType = tr[i].querySelector(".type-col").textContent.toLowerCase();
+                let tdGlobal = tr[i].querySelector(".global-col").textContent.toLowerCase();
+
+                if (
+                    tdAge.includes(filterAge) &&
+                    tdType.includes(filterType) &&
+                    tdGlobal.includes(filterGlobal)
+                ) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+
+        function triggerSync() {
+            fetch('/sync', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('lastRefreshTime').innerText = data.time + ' (Syncing...)';
+                });
+        }
+    </script>
+</body>
+</html>
