@@ -20,14 +20,27 @@ def acquire_lock():
         try:
             with open(LOCK_FILE, "r") as f:
                 pid = int(f.read().strip())
-            try:
-                os.kill(pid, 0)
-                print(f"[Lock Error] Another pipeline instance (PID {pid}) is already running! Exiting immediately.")
-                return False
-            except OSError:
-                pass  # Stale lock from dead process, safe to overwrite
+            cmdline_file = f"/proc/{pid}/cmdline"
+            if os.path.exists(cmdline_file):
+                with open(cmdline_file, "rb") as f:
+                    cmd = f.read().decode('utf-8', errors='ignore')
+                if "main.py" not in cmd:
+                    try: os.remove(LOCK_FILE)
+                    except Exception: pass
+                else:
+                    print(f"[Lock Error] Another pipeline instance (PID {pid}) is already running! Exiting immediately.")
+                    return False
+            else:
+                try:
+                    os.kill(pid, 0)
+                    print(f"[Lock Error] Another pipeline instance (PID {pid}) is already running! Exiting immediately.")
+                    return False
+                except OSError:
+                    try: os.remove(LOCK_FILE)
+                    except Exception: pass
         except Exception:
-            pass
+            try: os.remove(LOCK_FILE)
+            except Exception: pass
     try:
         with open(LOCK_FILE, "w") as f:
             f.write(str(os.getpid()))

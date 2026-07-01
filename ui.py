@@ -44,10 +44,20 @@ def is_scraper_running():
         try:
             with open(lock_file, "r") as f:
                 pid = int(f.read().strip())
+            cmdline_file = f"/proc/{pid}/cmdline"
+            if os.path.exists(cmdline_file):
+                with open(cmdline_file, "rb") as f:
+                    cmd = f.read().decode('utf-8', errors='ignore')
+                if "main.py" not in cmd:
+                    try: os.remove(lock_file)
+                    except Exception: pass
+                    return False
+                return True
             os.kill(pid, 0)
             return True
         except (OSError, ValueError):
-            pass
+            try: os.remove(lock_file)
+            except Exception: pass
     return False
 
 @app.route('/sync', methods=['POST'])

@@ -270,6 +270,10 @@ In case of any queries, feel free to reach out to me at the undersigned number.`
             fetch('/sync', {method: 'POST'})
                 .then(response => response.json())
                 .then(data => {
+                    if (data.status && (data.status.includes('already running') || data.status.includes('⚠️'))) {
+                        alert(data.status);
+                        return;
+                    }
                     document.getElementById('lastRefreshTime').innerText = data.time + ' (Syncing...)';
                     startStatusPolling();
                 });
