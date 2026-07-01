@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import datetime
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -10,7 +11,7 @@ def run_pipeline_job():
     print(f"\n[Scheduler] Triggering GTM Automated Signal Engine pipeline at {datetime.datetime.now()}...")
     try:
         # Run main.py as subprocess to ensure clean memory cleanup after each ingestion
-        subprocess.Popen(["python", "main.py"])
+        subprocess.Popen([sys.executable, "main.py"])
         last_refresh_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
         print(f"[Scheduler Error]: {e}")

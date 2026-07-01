@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify
 import sqlite3
 import subprocess
+import sys
 import datetime
 from config import DB_PATH
 from database import init_db
@@ -38,7 +39,7 @@ def index():
 
 @app.route('/sync', methods=['POST'])
 def sync_leads():
-    subprocess.Popen(["python", "main.py"])
+    subprocess.Popen([sys.executable, "main.py"])
     return jsonify({"status": "Started pipeline in background", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
 @app.route('/clear', methods=['POST'])

@@ -1,7 +1,7 @@
 import urllib.request
 import xml.etree.ElementTree as ET
 import time
-from config import RSS_FEEDS, MAX_ARTICLES_PER_FEED
+from feeds import RSS_FEEDS, MAX_ARTICLES_PER_FEED
 from ai_filter import analyze_funding_news
 
 FEED_NAMES = {
