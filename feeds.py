@@ -15,4 +15,4 @@ RSS_FEEDS = [
     "https://entrackr.com/rss"
 ]
 
-MAX_ARTICLES_PER_FEED = 5
+MAX_ARTICLES_PER_FEED = 10

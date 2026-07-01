@@ -22,15 +22,13 @@ def get_feed_name(feed_url):
     return "Industry News"
 
 def scrape_funding_feeds():
-    """Scrapes RSS feeds, analyzes them with AI, and yields relevant leads."""
-    leads = []
-    
+    """Scrapes RSS feeds, analyzes them with AI, and yields relevant leads as they are found."""
     for feed_url in RSS_FEEDS:
         feed_source_name = get_feed_name(feed_url)
         print(f"[{feed_source_name}] Fetching RSS Feed: {feed_url}")
         try:
             req = urllib.request.Request(feed_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=10) as response:
                 xml_data = response.read()
             
             root = ET.fromstring(xml_data)
@@ -48,12 +46,10 @@ def scrape_funding_feeds():
                         print(f"  ✅ MATCH: {result.get('company_name')} ({result.get('classification')})")
                         result["funnel_source"] = feed_source_name
                         result["source_link"] = link
-                        leads.append(result)
+                        yield result
                     else:
                          print(f"  ❌ Ignored: {result.get('company_name')}")
                 except Exception as e:
                     print(f"  [Error] analyzing article: {e}")
         except Exception as e:
              print(f"[Error] fetching feed {feed_url}: {e}")
-             
-    return leads

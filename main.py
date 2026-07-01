@@ -26,18 +26,14 @@ def main():
         print("[Quota Enforcer] 🎯 Daily quota of 10 verified companies reached! Exiting early to conserve API credits.")
         return
 
-    # 2. Gather Leads from Funnels
-    print("\n--- PHASE 1: INGESTION (Indian Mechanical & Startup RSS Feeds) ---")
-    leads = scrape_funding_feeds()
-    
-    # 3. Process, Enrich and Store
-    print(f"\n--- PHASE 2: ENRICHMENT & STORAGE ({len(leads)} raw candidate leads) ---")
+    # 2. Gather, Enrich and Store Leads on the Fly (Streaming Pipeline)
+    print("\n--- STREAMING PIPELINE: INGESTION, ENRICHMENT & STORAGE ON-THE-FLY ---")
     
     new_leads_added = 0
-    for lead in leads:
+    for lead in scrape_funding_feeds():
         # Check quota at start of each iteration
         if count_extracted_leads_today() >= 10:
-            print("\n[Quota Enforcer] 🎯 Reached daily limit of 10 verified extracted leads! Stopping enrichment loop.")
+            print("\n[Quota Enforcer] 🎯 Reached daily limit of 10 verified extracted leads! Stopping pipeline immediately.")
             break
 
         company = lead.get('company_name', '').strip()
