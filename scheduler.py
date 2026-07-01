@@ -10,8 +10,8 @@ def run_pipeline_job():
     global last_refresh_time
     print(f"\n[Scheduler] Triggering GTM Automated Signal Engine pipeline at {datetime.datetime.now()}...")
     try:
-        # Run main.py as subprocess to ensure clean memory cleanup after each ingestion
-        subprocess.Popen([sys.executable, "main.py"])
+        log_file = open("pipeline.log", "a", encoding="utf-8")
+        subprocess.Popen([sys.executable, "main.py"], stdout=log_file, stderr=log_file)
         last_refresh_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
         print(f"[Scheduler Error]: {e}")

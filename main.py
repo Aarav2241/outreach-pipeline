@@ -1,5 +1,9 @@
 import sys
 import os
+import socket
+
+# Prevent infinite hanging on slow RSS feeds or API connections
+socket.setdefaulttimeout(15)
 
 # Ensure the correct encoding for the terminal
 sys.stdout.reconfigure(encoding='utf-8')

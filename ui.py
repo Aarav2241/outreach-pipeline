@@ -39,8 +39,9 @@ def index():
 
 @app.route('/sync', methods=['POST'])
 def sync_leads():
-    subprocess.Popen([sys.executable, "main.py"])
-    return jsonify({"status": "Started pipeline in background", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+    log_file = open("pipeline.log", "a", encoding="utf-8")
+    subprocess.Popen([sys.executable, "main.py"], stdout=log_file, stderr=log_file)
+    return jsonify({"status": "Started pipeline in background (logging to pipeline.log)", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
 @app.route('/clear', methods=['POST'])
 def clear_database():
