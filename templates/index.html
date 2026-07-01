@@ -61,21 +61,6 @@
             </div>
         </header>
 
-        <!-- Filters -->
-        <div class="mb-6 flex gap-4 bg-[#111] p-4 border border-[#333]">
-            <div class="flex items-center gap-2">
-                <label class="font-mono text-xs text-gray-500 uppercase">Age:</label>
-                <input type="text" id="filterAge" onkeyup="filterTable()" placeholder=">= 5 yrs" class="select-tech w-24">
-            </div>
-            <div class="flex items-center gap-2">
-                <label class="font-mono text-xs text-gray-500 uppercase">Type:</label>
-                <input type="text" id="filterType" onkeyup="filterTable()" placeholder="MNC/Listed" class="select-tech w-32">
-            </div>
-            <div class="flex items-center gap-2">
-                <label class="font-mono text-xs text-gray-500 uppercase">Global:</label>
-                <input type="text" id="filterGlobal" onkeyup="filterTable()" placeholder=">= 2" class="select-tech w-20">
-            </div>
-        </div>
 
         <div class="panel overflow-x-auto">
             <table class="w-full text-left text-sm whitespace-nowrap" id="leadsTable">
@@ -235,29 +220,6 @@ In case of any queries, feel free to reach out to me at the undersigned number.`
             }, 1500);
         }
 
-        function filterTable() {
-            let filterAge = document.getElementById("filterAge").value.toLowerCase();
-            let filterType = document.getElementById("filterType").value.toLowerCase();
-            let filterGlobal = document.getElementById("filterGlobal").value.toLowerCase();
-
-            let tr = document.getElementById("leadsTable").getElementsByTagName("tr");
-
-            for (let i = 1; i < tr.length; i++) {
-                let tdAge = tr[i].querySelector(".age-col").textContent.toLowerCase();
-                let tdType = tr[i].querySelector(".type-col").textContent.toLowerCase();
-                let tdGlobal = tr[i].querySelector(".global-col").textContent.toLowerCase();
-
-                if (
-                    tdAge.includes(filterAge) &&
-                    tdType.includes(filterType) &&
-                    tdGlobal.includes(filterGlobal)
-                ) {
-                    tr[i].style.display = "";
-                } else {
-                    tr[i].style.display = "none";
-                }
-            }
-        }
 
         function triggerSync() {
             fetch('/sync', {method: 'POST'})
