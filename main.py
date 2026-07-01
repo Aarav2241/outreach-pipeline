@@ -26,14 +26,19 @@ def main():
         print("[Quota Enforcer] 🎯 Daily quota of 10 verified companies reached! Exiting early to conserve API credits.")
         return
 
-    # 2. Gather, Enrich and Store Leads on the Fly (Streaming Pipeline)
-    print("\n--- STREAMING PIPELINE: INGESTION, ENRICHMENT & STORAGE ON-THE-FLY ---")
+    # 2. Stream leads: scrape → filter → enrich → store (each lead flows through immediately)
+    print("\n--- STREAMING PIPELINE: Scrape → AI Filter → Enrich → Store ---")
+    print("    (Leads appear on the dashboard as soon as each one is processed)\n")
     
     new_leads_added = 0
+    candidates_seen = 0
+    
     for lead in scrape_funding_feeds():
+        candidates_seen += 1
+        
         # Check quota at start of each iteration
         if count_extracted_leads_today() >= 10:
-            print("\n[Quota Enforcer] 🎯 Reached daily limit of 10 verified extracted leads! Stopping pipeline immediately.")
+            print("\n[Quota Enforcer] 🎯 Reached daily limit of 10 verified extracted leads! Stopping.")
             break
 
         company = lead.get('company_name', '').strip()
@@ -48,7 +53,7 @@ def main():
             continue
         mark_url_processed(dedup_key)
             
-        print(f"\n🔍 Processing Candidate: {company} (Source: {lead.get('funnel_source', 'Unknown')})")
+        print(f"\n🔍 Enriching: {company} (Source: {lead.get('funnel_source', 'Unknown')})")
         contact_data = enrich_contact(company, lead.get('funnel_source', 'Unknown'), lead.get('key_technology', 'Unknown'))
         
         if not contact_data or not contact_data.get("emails") or contact_data.get("emails") == "N/A":
@@ -74,16 +79,15 @@ def main():
         )
         
         if inserted:
-            print(f"✨ ADDED VERIFIED LEAD (#{count_extracted_leads_today()}/10 today): {company} | Emails: {contact_data['emails']}")
             new_leads_added += 1
+            print(f"✨ ADDED LEAD #{count_extracted_leads_today()}/10 → {company} | Emails: {contact_data['emails']}")
         else:
-            print(f"🔄 DUPLICATE LEAD: {company} (Already in database)")
+            print(f"🔄 DUPLICATE: {company} (Already in database)")
 
     print("\n==========================================================")
-    print(f" Pipeline Complete! Added {new_leads_added} new verified companies.")
+    print(f" Pipeline Complete! Scanned {candidates_seen} candidates, added {new_leads_added} new verified companies.")
     print(f" Total verified leads today: {count_extracted_leads_today()} / 10")
     print("==========================================================")
 
 if __name__ == "__main__":
     main()
-

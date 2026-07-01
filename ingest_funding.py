@@ -22,13 +22,14 @@ def get_feed_name(feed_url):
     return "Industry News"
 
 def scrape_funding_feeds():
-    """Scrapes RSS feeds, analyzes them with AI, and yields relevant leads as they are found."""
+    """Scrapes RSS feeds, analyzes them with AI, and yields relevant leads one at a time."""
+    
     for feed_url in RSS_FEEDS:
         feed_source_name = get_feed_name(feed_url)
         print(f"[{feed_source_name}] Fetching RSS Feed: {feed_url}")
         try:
             req = urllib.request.Request(feed_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=10) as response:
+            with urllib.request.urlopen(req) as response:
                 xml_data = response.read()
             
             root = ET.fromstring(xml_data)
