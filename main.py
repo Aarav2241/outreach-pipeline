@@ -6,11 +6,6 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 from database import init_db, insert_lead, count_extracted_leads_today, is_url_processed, mark_url_processed
 from ingest_funding import scrape_funding_feeds
-from ingest_exhibitions import scrape_exhibitions
-from ingest_gov_initiatives import scrape_gov_initiatives
-from ingest_patents import scrape_patents
-from ingest_hackernews import scrape_hackernews
-from ingest_hackaday import scrape_hackaday
 from contact_enrichment import enrich_contact
 
 def main():
@@ -28,46 +23,8 @@ def main():
         return
 
     # 2. Gather Leads from Funnels
-    leads = []
-    
-    print("\n--- PHASE 1: INGESTION ---")
-    # Funding Funnel (Highest Priority)
-    if os.environ.get("GEMINI_API_KEY") or os.environ.get("GROQ_API_KEY"):
-        funding_leads = scrape_funding_feeds()
-        leads.extend(funding_leads)
-    else:
-        print("\n[Funding] Skipping Funding Funnel (API KEYS not set)")
-
-    # Exhibition Funnel
-    exhibition_leads = scrape_exhibitions()
-    leads.extend(exhibition_leads)
-    
-    # Government Initiatives Funnel (DSIR, iDEX, DPIIT)
-    gov_leads = scrape_gov_initiatives()
-    leads.extend(gov_leads)
-    
-    # Patents Funnel
-    patent_leads = scrape_patents()
-    leads.extend(patent_leads)
-        
-    # Hackaday Funnel
-    hd_leads = scrape_hackaday()
-    leads.extend(hd_leads)
-    
-    # HackerNews Funnel (Lowest Priority due to early-stage/stealth nature)
-    hn_leads = scrape_hackernews()
-    leads.extend(hn_leads)
-    
-    # Prioritize leads by source reliability
-    funnel_priority = {
-        "Funding RSS": 1,
-        "Exhibitions": 2,
-        "Government Initiatives": 3,
-        "Patents": 4,
-        "Hackaday": 5,
-        "HackerNews": 6
-    }
-    leads.sort(key=lambda x: funnel_priority.get(x.get('funnel_source', ''), 10))
+    print("\n--- PHASE 1: INGESTION (Indian Mechanical & Startup RSS Feeds) ---")
+    leads = scrape_funding_feeds()
     
     # 3. Process, Enrich and Store
     print(f"\n--- PHASE 2: ENRICHMENT & STORAGE ({len(leads)} raw candidate leads) ---")
