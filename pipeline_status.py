@@ -79,21 +79,17 @@ def status_error(error_msg):
     _write(s)
 
 def status_done(scanned, added):
-    _write({
-        "state": "done",
-        "message": f"Pipeline complete! Scanned {scanned} candidates, added {added} new leads.",
-        "articles_scanned": scanned,
-        "matches_found": 0,
-        "leads_added": added,
-        "errors": []
-    })
+    s = read_status()
+    s["state"] = "done"
+    s["message"] = f"Pipeline complete! Scanned {scanned} candidates, added {added} new leads."
+    s["articles_scanned"] = scanned
+    s["leads_added"] = added
+    s["errors"] = []
+    _write(s)
 
 def status_quota_reached():
-    _write({
-        "state": "done",
-        "message": "🎯 Daily quota of 10 verified companies reached!",
-        "articles_scanned": 0,
-        "matches_found": 0,
-        "leads_added": 10,
-        "errors": []
-    })
+    s = read_status()
+    s["state"] = "done"
+    s["message"] = "🎯 Daily quota of 10 verified companies reached!"
+    s["errors"] = []
+    _write(s)
