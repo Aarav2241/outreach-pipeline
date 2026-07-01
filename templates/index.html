@@ -56,6 +56,7 @@
             </div>
             <div class="text-right">
                 <p class="text-[var(--text-muted)] font-mono text-xs mb-2">Last Refreshed: <span id="lastRefreshTime" class="text-white">{{ last_refresh }}</span></p>
+                <button onclick="clearDatabase()" class="btn-tech px-4 py-2 mr-2" style="border-color: #ff4444; color: #ff4444;">> Clear Old Data</button>
                 <button onclick="triggerSync()" class="btn-tech px-4 py-2">> Sync New Leads</button>
             </div>
         </header>
@@ -82,9 +83,10 @@
                     <tr>
                         <th class="px-4 py-4">Company</th>
                         <th class="px-4 py-4">Source</th>
-                        <th class="px-4 py-4">Age</th>
-                        <th class="px-4 py-4">Type</th>
-                        <th class="px-4 py-4">Global Pres.</th>
+                        <th class="px-4 py-4">Founded</th>
+                        <th class="px-4 py-4">Sector / Industry</th>
+                        <th class="px-4 py-4">Headcount</th>
+                        <th class="px-4 py-4">Enrichment</th>
                         <th class="px-4 py-4">Target Individuals</th>
                         <th class="px-4 py-4 text-right">Actions</th>
                     </tr>
@@ -97,6 +99,15 @@
                         <td class="px-4 py-3 text-gray-300 age-col">{{ lead.company_age }}</td>
                         <td class="px-4 py-3 text-gray-300 type-col">{{ lead.company_type }}</td>
                         <td class="px-4 py-3 text-gray-300 global-col">{{ lead.global_presence }}</td>
+                        <td class="px-4 py-3">
+                            {% if lead.enrichment_source and 'Apollo' in lead.enrichment_source %}
+                                <span style="color: #00ffcc; border: 1px solid #00ffcc; padding: 2px 6px; font-size: 10px; text-transform: uppercase;">Apollo API</span>
+                            {% elif lead.enrichment_source and 'Cache' in lead.enrichment_source %}
+                                <span style="color: #3388ff; border: 1px solid #3388ff; padding: 2px 6px; font-size: 10px; text-transform: uppercase;">Cache</span>
+                            {% else %}
+                                <span style="color: #888888; border: 1px solid #555555; padding: 2px 6px; font-size: 10px; text-transform: uppercase;">{{ lead.enrichment_source or 'OSINT' }}</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-gray-300">
                             {% if lead.contact_emails and lead.contact_emails != 'N/A' %}
                                 {% for email in lead.contact_emails.split(', ') %}
@@ -246,6 +257,17 @@ In case of any queries, feel free to reach out to me at the undersigned number.`
                 .then(data => {
                     document.getElementById('lastRefreshTime').innerText = data.time + ' (Syncing...)';
                 });
+        }
+
+        function clearDatabase() {
+            if (confirm("Are you sure you want to clear all old scraped leads and garbage data? This cannot be undone.")) {
+                fetch('/clear', {method: 'POST'})
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.status);
+                        location.reload();
+                    });
+            }
         }
     </script>
 </body>

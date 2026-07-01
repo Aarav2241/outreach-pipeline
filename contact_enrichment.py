@@ -2,10 +2,18 @@ import urllib.request
 import urllib.parse
 import os
 import json
-from config import HUNTER_API_KEY, CONTACTOUT_API_KEY, SIGNALHIRE_API_KEY, KENDO_API_KEY, APOLLO_API_KEY, GEMINI_API_KEY, TEST_MODE
+import config
 from google import genai
 from google.genai import types
 from database import get_cached_profile, save_cached_profile
+
+HUNTER_API_KEY = getattr(config, "HUNTER_API_KEY", os.environ.get("HUNTER_API_KEY", ""))
+CONTACTOUT_API_KEY = getattr(config, "CONTACTOUT_API_KEY", os.environ.get("CONTACTOUT_API_KEY", ""))
+SIGNALHIRE_API_KEY = getattr(config, "SIGNALHIRE_API_KEY", os.environ.get("SIGNALHIRE_API_KEY", ""))
+KENDO_API_KEY = getattr(config, "KENDO_API_KEY", os.environ.get("KENDO_API_KEY", ""))
+APOLLO_API_KEY = getattr(config, "APOLLO_API_KEY", os.environ.get("APOLLO_API_KEY", "puCmLGpV3b-3GTDcliuB3Q"))
+GEMINI_API_KEY = getattr(config, "GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
+TEST_MODE = getattr(config, "TEST_MODE", False)
 
 # Setup Gemini for generating pitches if needed
 if GEMINI_API_KEY:

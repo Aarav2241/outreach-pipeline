@@ -41,6 +41,16 @@ def sync_leads():
     subprocess.Popen(["python", "main.py"])
     return jsonify({"status": "Started pipeline in background", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
+@app.route('/clear', methods=['POST'])
+def clear_database():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM leads')
+    cursor.execute('DELETE FROM processed_urls')
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "Cleared all old leads from database."})
+
 if __name__ == '__main__':
     print(f"Ensuring database exists...")
     init_db()
