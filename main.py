@@ -8,7 +8,7 @@ socket.setdefaulttimeout(15)
 # Ensure the correct encoding for the terminal
 sys.stdout.reconfigure(encoding='utf-8')
 
-from database import init_db, insert_lead, count_extracted_leads_today, is_url_processed, mark_url_processed
+from database import init_db, insert_lead, count_extracted_leads_today
 from ingest_funding import scrape_funding_feeds
 from contact_enrichment import enrich_contact
 from pipeline_status import status_start, status_done, status_quota_reached, status_enriching, status_lead_added, status_error
@@ -49,13 +49,6 @@ def main():
         if not company or company.lower() in ["none", "not specified", "unknown"]:
             print(f"❌ DROPPING INVALID COMPANY NAME: {company}")
             continue
-            
-        # Deduplication check
-        dedup_key = lead.get('url') or company
-        if is_url_processed(dedup_key):
-            print(f"⏭️ [Dedup Guard] Skipping already processed item: {company}")
-            continue
-        mark_url_processed(dedup_key)
             
         print(f"\n🔍 Enriching: {company} (Source: {lead.get('funnel_source', 'Unknown')})")
         status_enriching(company)
