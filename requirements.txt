@@ -2,3 +2,5 @@ Flask
 groq
 google-genai
 requests
+pydantic
+apscheduler

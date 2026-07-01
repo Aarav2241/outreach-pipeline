@@ -2,12 +2,12 @@ import urllib.request
 import urllib.parse
 import os
 import json
-from config import HUNTER_API_KEY, CONTACTOUT_API_KEY, SIGNALHIRE_API_KEY, KENDO_API_KEY, GEMINI_API_KEY, TEST_MODE
+from config import HUNTER_API_KEY, CONTACTOUT_API_KEY, SIGNALHIRE_API_KEY, KENDO_API_KEY, APOLLO_API_KEY, GEMINI_API_KEY, TEST_MODE
 from google import genai
 from google.genai import types
-from ai_filter import call_groq, call_openrouter
+from database import get_cached_profile, save_cached_profile
 
-# Setup Gemini for generating the personalized LinkedIn Pitch
+# Setup Gemini for generating pitches if needed
 if GEMINI_API_KEY:
     client = genai.Client(api_key=GEMINI_API_KEY)
 else:
@@ -20,49 +20,11 @@ def extract_email_pattern(emails, domain):
         if "->" in email:
             email = email.split("->")[-1].strip()
         local_part = email.split('@')[0].lower()
-        # Common heuristics
         if '.' in local_part:
             return f"{{first}}.{{last}}@{domain}"
         elif len(local_part) > 3 and local_part.isalpha():
-            # Could be {first} or {first}{last}
             return f"{{first}}@{domain} OR {{first}}{{last}}@{domain}"
     return f"unknown_pattern@{domain}"
-
-def guess_founder_emails(company_name, domain, pattern):
-    """Uses LLM to guess key personnel names and construct their emails."""
-    prompt = f"Identify up to 2 key people at the company '{company_name}' who handle hiring, leadership, or engineering (e.g., Founders, CEO, Talent Acquisition, HR Head, VP of Engineering, Business Development). Return their full names in a strict JSON list format like {{\"names\": [\"First Last\", \"First Last\"]}}. If you absolutely don't know, return an empty list."
-    system = "You are a helpful data enrichment assistant. Only return valid JSON with the key 'names'. Do not wrap in markdown."
-    names = []
-    try:
-        res = call_groq(system, prompt)
-        names = res.get("names", [])
-    except Exception as e:
-        print(f"      [LLM Name Guess Error Groq]: {e}")
-        try:
-             res = call_openrouter(system, prompt)
-             names = res.get("names", [])
-        except Exception as e2:
-             print(f"      [LLM Name Guess Error OpenRouter]: {e2}")
-             
-    emails = []
-    for name in names:
-        parts = name.strip().split()
-        if len(parts) >= 2:
-            first = parts[0].lower().replace(".", "").replace(",", "")
-            last = parts[-1].lower().replace(".", "").replace(",", "")
-            
-            if pattern and pattern != f"unknown_pattern@{domain}":
-                p = pattern.split(" OR ")[0]
-                e = p.replace("{first}", first).replace("{last}", last)
-                emails.append(f"{name} -> {e}")
-            else:
-                emails.append(f"{name} -> {first}.{last}@{domain}")
-                emails.append(f"{name} -> {first}@{domain}")
-    
-    if not emails:
-        emails = [f"founders@{domain}", f"info@{domain}"]
-        
-    return emails
 
 def get_real_domain(company_name):
     """Uses Clearbit free API to get the true corporate domain."""
@@ -75,25 +37,37 @@ def get_real_domain(company_name):
                 return data[0].get('domain')
     except Exception:
         pass
-    # Fallback heuristic
     return company_name.lower().replace(" ", "").replace(",", "") + ".com"
 
-def generate_linkedin_pitch(company_name, source, tech):
-    """Uses Gemini to generate a personalized 300-char LinkedIn connection request."""
-    if not client:
-        return "Hi [Name], I'm with IIT Bombay's Placement Office. Would love to connect regarding hiring top mechanical engineering talent."
-        
-    prompt = f"Write a 280-character LinkedIn connection request to the Founder/VP Engineering of '{company_name}'. Mention you saw them via '{source}' and noted their work in '{tech}'. Introduce IIT Bombay's mechanical talent. Be professional but conversational."
-    
+def query_apollo_org(domain, company_name):
+    """Queries Apollo.io organization enrichment API for firmographics."""
+    print(f"    -> Trying Apollo.io API for firmographics...")
+    if not APOLLO_API_KEY or APOLLO_API_KEY == "your_apollo_api_key_here":
+        return {}
+    url = "https://api.apollo.io/v1/organizations/enrich"
+    headers = {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        "X-Api-Key": APOLLO_API_KEY
+    }
+    data = {"domain": domain} if domain else {"name": company_name}
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        return response.text.strip()
+        req = urllib.request.Request(url, headers=headers, data=json.dumps(data).encode('utf-8'), method='POST')
+        with urllib.request.urlopen(req) as response:
+            res_json = json.loads(response.read())
+            org = res_json.get("organization", {})
+            if not org:
+                return {}
+            return {
+                "employee_count": str(org.get("estimated_num_employees", "Unknown")),
+                "revenue_range": str(org.get("annual_revenue_printed", "Unknown")),
+                "sector": str(org.get("industry", "Mechanical / DeepTech")),
+                "founded_year": str(org.get("founded_year", "Unknown")),
+                "funding_raised": str(org.get("total_funding_printed", "Unknown"))
+            }
     except Exception as e:
-        print(f"[Pitch Error]: {e}")
-        return "Hi, reaching out from IIT Bombay Placement Office to connect regarding mechanical engineering hiring."
+        print(f"    -> Apollo API Failed: {e}")
+        return {}
 
 def query_hunter(domain):
     print(f"    -> Trying Hunter.io...")
@@ -164,8 +138,8 @@ def query_kendo(domain):
 
 def enrich_contact(company_name, funnel_source, key_tech):
     """
-    Finds contact info using the API Waterfall.
-    No longer generates personalized pitches per user request.
+    Finds contact info using the API Waterfall and Apollo Org Enrichment.
+    Enforces strict extracted-only email policy per user request.
     """
     domain = get_real_domain(company_name)
     linkedin_url = f"https://www.linkedin.com/search/results/people/?keywords={urllib.parse.quote('\"' + company_name + '\" founder OR engineering')}"
@@ -173,13 +147,12 @@ def enrich_contact(company_name, funnel_source, key_tech):
     if TEST_MODE:
         print("    -> [TEST MODE] Bypassing contact APIs.")
         return {
-            "emails": f"test@{domain}",
+            "emails": f"test.founder@{domain} (Extracted)",
             "linkedin_url": linkedin_url,
-            "linkedin_pitch": "N/A - Feature Disabled",
-            "email_pattern": f"{{first}}.{{last}}@{domain}"
+            "email_pattern": f"{{first}}.{{last}}@{domain}",
+            "firmographics": {},
+            "enrichment_source": "Test Mode"
         }
-    
-    found_emails = None
     
     extracted_emails = query_hunter(domain)
     if not extracted_emails:
@@ -190,38 +163,40 @@ def enrich_contact(company_name, funnel_source, key_tech):
         extracted_emails = query_kendo(domain)
         
     extracted_emails = extracted_emails or []
-    # Deduplicate and limit to 4
     extracted_emails = list(dict.fromkeys(extracted_emails))[:4]
 
-    # Extract pattern (before modifying strings)
+    # Enforce Extracted-Only Policy: Drop if 0 emails extracted
+    if not extracted_emails:
+        print(f"    ❌ No extracted emails found for {company_name}. Dropping lead (estimation disabled).")
+        return None
+
     email_pattern = extract_email_pattern(extracted_emails, domain)
-    
-    # Always try to estimate founders
-    print("    -> Using LLM to guess/estimate founder emails.")
-    estimated_emails = guess_founder_emails(company_name, domain, email_pattern)
-    
-    # Deduplicate estimated against extracted
-    extracted_raw_set = set()
-    for e in extracted_emails:
-        if "->" in e:
-            extracted_raw_set.add(e.split("->")[-1].strip().lower())
-        else:
-            extracted_raw_set.add(e.strip().lower())
-
-    filtered_estimated = []
-    for e in estimated_emails:
-        raw_e = e.split("->")[-1].strip().lower() if "->" in e else e.strip().lower()
-        if raw_e not in extracted_raw_set:
-            filtered_estimated.append(e)
-
-    # Add status tags
     tagged_extracted = [e + " (Extracted)" for e in extracted_emails]
-    tagged_estimated = [e + " (Estimated)" for e in filtered_estimated]
     
-    final_emails = tagged_extracted + tagged_estimated
+    # 3-Tier Firmographic Caching & Enrichment
+    cached_org = get_cached_profile(company_name)
+    if cached_org and cached_org.get("enrichment_source") != "Cache":
+        print(f"    ⚡ [Cache Hit] Loaded firmographics from SQLite cache.")
+        firmographics = cached_org
+        enrichment_source = "Cache"
+    else:
+        firmographics = query_apollo_org(domain, company_name)
+        enrichment_source = "Apollo API" if firmographics else "OSINT API"
+        save_cached_profile(
+            name=company_name,
+            domain=domain,
+            employee_count=firmographics.get("employee_count", "Unknown"),
+            revenue_range=firmographics.get("revenue_range", "Unknown"),
+            sector=firmographics.get("sector", "Mechanical / DeepTech"),
+            founded_year=firmographics.get("founded_year", "Unknown"),
+            funding_raised=firmographics.get("funding_raised", "Unknown"),
+            enrichment_source=enrichment_source
+        )
     
     return {
-        "emails": ", ".join(final_emails) if final_emails else "N/A",
+        "emails": ", ".join(tagged_extracted),
         "linkedin_url": linkedin_url,
-        "email_pattern": email_pattern
+        "email_pattern": email_pattern,
+        "firmographics": firmographics,
+        "enrichment_source": enrichment_source
     }
