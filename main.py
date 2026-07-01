@@ -13,21 +13,53 @@ from ingest_funding import scrape_funding_feeds
 from contact_enrichment import enrich_contact
 from pipeline_status import status_start, status_done, status_quota_reached, status_enriching, status_lead_added, status_error
 
+LOCK_FILE = os.path.join(os.path.dirname(__file__), "pipeline.lock")
+
+def acquire_lock():
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, "r") as f:
+                pid = int(f.read().strip())
+            try:
+                os.kill(pid, 0)
+                print(f"[Lock Error] Another pipeline instance (PID {pid}) is already running! Exiting immediately.")
+                return False
+            except OSError:
+                pass  # Stale lock from dead process, safe to overwrite
+        except Exception:
+            pass
+    try:
+        with open(LOCK_FILE, "w") as f:
+            f.write(str(os.getpid()))
+    except Exception:
+        pass
+    return True
+
+def release_lock():
+    try:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+    except Exception:
+        pass
+
 def main():
-    print("==========================================================")
-    print(" GTM Automated Signal Engine - IITB Mechanical Pipeline   ")
-    print("==========================================================\n")
-    
-    # 1. Initialize Database & Check Daily Quota
-    init_db()
-    status_start()
-    
-    current_today_count = count_extracted_leads_today()
-    print(f"[Quota Enforcer] Current verified extracted leads added today: {current_today_count} / 10")
-    if current_today_count >= 10:
-        print("[Quota Enforcer] 🎯 Daily quota of 10 verified companies reached! Exiting early to conserve API credits.")
-        status_quota_reached()
+    if not acquire_lock():
         return
+    try:
+        print("==========================================================")
+        print(" GTM Automated Signal Engine - IITB Mechanical Pipeline   ")
+        print("==========================================================\n")
+        
+        # 1. Initialize Database & Check Daily Quota
+        init_db()
+        status_start()
+        
+        current_today_count = count_extracted_leads_today()
+        print(f"[Quota Enforcer] Current verified extracted leads added today: {current_today_count} / 10")
+        if current_today_count >= 10:
+            print("[Quota Enforcer] 🎯 Daily quota of 10 verified companies reached! Exiting early to conserve API credits.")
+            status_quota_reached()
+            return
 
     # 2. Stream leads: scrape → filter → enrich → store (each lead flows through immediately)
     print("\n--- STREAMING PIPELINE: Scrape → AI Filter → Enrich → Store ---")
@@ -88,6 +120,7 @@ def main():
     print(f" Total verified leads today: {count_extracted_leads_today()} / 10")
     print("==========================================================")
     status_done(candidates_seen, new_leads_added)
+    release_lock()
 
 if __name__ == "__main__":
     main()

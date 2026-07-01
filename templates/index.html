@@ -291,8 +291,13 @@ In case of any queries, feel free to reach out to me at the undersigned number.`
                 .then(s => {
                     const bar = document.getElementById('statusBar');
                     const dot = document.getElementById('statusDot');
-                    bar.classList.add('active');
 
+                    if (s.state === 'idle' || !s.state) {
+                        bar.classList.remove('active');
+                        return;
+                    }
+
+                    bar.classList.add('active');
                     document.getElementById('statusMessage').innerText = s.message || 'Processing...';
                     document.getElementById('statArticles').innerText = s.articles_scanned || 0;
                     document.getElementById('statMatches').innerText = s.matches_found || 0;
@@ -302,13 +307,14 @@ In case of any queries, feel free to reach out to me at the undersigned number.`
                     if (s.state === 'done') {
                         dot.className = 'status-dot done';
                         bar.classList.add('done');
-                        clearInterval(statusPollInterval);
-                        statusPollInterval = null;
-                        // Auto-refresh the page to show new leads
-                        setTimeout(() => location.reload(), 1500);
+                        if (statusPollInterval !== null) {
+                            clearInterval(statusPollInterval);
+                            statusPollInterval = null;
+                            // Auto-refresh once when job finishes during active polling
+                            setTimeout(() => location.reload(), 1500);
+                        }
                     } else if (s.state === 'running') {
                         dot.className = 'status-dot running';
-                        // Check if new leads appeared since last check
                         if ((s.leads_added || 0) > 0) {
                             document.getElementById('lastRefreshTime').innerText = s.last_update + ' (New leads incoming...)';
                         }

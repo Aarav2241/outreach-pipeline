@@ -38,8 +38,22 @@ def index():
     leads = get_all_leads()
     return render_template('index.html', leads=leads, last_refresh=get_last_refresh_time())
 
+def is_scraper_running():
+    lock_file = os.path.join(os.path.dirname(__file__), "pipeline.lock")
+    if os.path.exists(lock_file):
+        try:
+            with open(lock_file, "r") as f:
+                pid = int(f.read().strip())
+            os.kill(pid, 0)
+            return True
+        except (OSError, ValueError):
+            pass
+    return False
+
 @app.route('/sync', methods=['POST'])
 def sync_leads():
+    if is_scraper_running():
+        return jsonify({"status": "⚠️ Pipeline is already running in the background! Please wait for it to finish.", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
     log_file = open("pipeline.log", "a", encoding="utf-8")
     subprocess.Popen([sys.executable, "main.py"], stdout=log_file, stderr=log_file)
     return jsonify({"status": "Started pipeline in background", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
