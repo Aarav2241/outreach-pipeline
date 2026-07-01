@@ -4,7 +4,7 @@ import subprocess
 import sys
 import datetime
 from config import DB_PATH
-from database import init_db
+from database import init_db, count_extracted_leads_today
 from scheduler import start_scheduler
 from pipeline_status import read_status
 
@@ -39,6 +39,14 @@ def index():
     return render_template('index.html', leads=leads, last_refresh=get_last_refresh_time())
 
 def is_scraper_running():
+    try:
+        res = subprocess.run(["pgrep", "-f", "main.py"], stdout=subprocess.PIPE, text=True)
+        pids = [p.strip() for p in res.stdout.strip().split() if p.strip().isdigit() and int(p.strip()) != os.getpid()]
+        if len(pids) > 0:
+            return True
+    except Exception:
+        pass
+
     lock_file = os.path.join(os.path.dirname(__file__), "pipeline.lock")
     if os.path.exists(lock_file):
         try:
@@ -64,6 +72,8 @@ def is_scraper_running():
 def sync_leads():
     if is_scraper_running():
         return jsonify({"status": "⚠️ Pipeline is already running in the background! Please wait for it to finish.", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+    if count_extracted_leads_today() >= 10:
+        return jsonify({"status": "🎯 Daily quota of 10 verified companies already reached today! Use 'Clear Old Leads' if you want to test again.", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
     log_file = open("pipeline.log", "a", encoding="utf-8")
     subprocess.Popen([sys.executable, "main.py"], stdout=log_file, stderr=log_file)
     return jsonify({"status": "Started pipeline in background", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
