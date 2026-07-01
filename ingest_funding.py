@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import time
 from feeds import RSS_FEEDS, MAX_ARTICLES_PER_FEED
 from ai_filter import analyze_funding_news
+from pipeline_status import status_feed, status_article, status_match, status_error
 
 FEED_NAMES = {
     "manufacturing.economictimes": "ET Manufacturing",
@@ -15,6 +16,9 @@ FEED_NAMES = {
     "entrackr.com": "Entrackr"
 }
 
+_articles_scanned = 0
+_matches_found = 0
+
 def get_feed_name(feed_url):
     for key, name in FEED_NAMES.items():
         if key in feed_url:
@@ -23,10 +27,14 @@ def get_feed_name(feed_url):
 
 def scrape_funding_feeds():
     """Scrapes RSS feeds, analyzes them with AI, and yields relevant leads one at a time."""
+    global _articles_scanned, _matches_found
+    _articles_scanned = 0
+    _matches_found = 0
     
     for feed_url in RSS_FEEDS:
         feed_source_name = get_feed_name(feed_url)
         print(f"[{feed_source_name}] Fetching RSS Feed: {feed_url}")
+        status_feed(feed_source_name)
         try:
             req = urllib.request.Request(feed_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req) as response:
@@ -40,11 +48,15 @@ def scrape_funding_feeds():
                 summary = item.find('description').text if item.find('description') is not None else "No Summary"
                 link = item.find('link').text if item.find('link') is not None and item.find('link').text else feed_url
                 
+                _articles_scanned += 1
                 print(f"[{feed_source_name}] Analyzing: {title}")
+                status_article(feed_source_name, title, _articles_scanned)
                 try:
                     result = analyze_funding_news(title, summary)
                     if result.get("is_relevant_for_mechanical_hiring"):
+                        _matches_found += 1
                         print(f"  ✅ MATCH: {result.get('company_name')} ({result.get('classification')})")
+                        status_match(result.get('company_name', 'Unknown'), _matches_found)
                         result["funnel_source"] = feed_source_name
                         result["source_link"] = link
                         yield result
@@ -52,5 +64,7 @@ def scrape_funding_feeds():
                          print(f"  ❌ Ignored: {result.get('company_name')}")
                 except Exception as e:
                     print(f"  [Error] analyzing article: {e}")
+                    status_error(str(e))
         except Exception as e:
              print(f"[Error] fetching feed {feed_url}: {e}")
+             status_error(f"Feed error ({feed_source_name}): {e}")

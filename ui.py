@@ -6,6 +6,7 @@ import datetime
 from config import DB_PATH
 from database import init_db
 from scheduler import start_scheduler
+from pipeline_status import read_status
 
 app = Flask(__name__)
 
@@ -41,7 +42,12 @@ def index():
 def sync_leads():
     log_file = open("pipeline.log", "a", encoding="utf-8")
     subprocess.Popen([sys.executable, "main.py"], stdout=log_file, stderr=log_file)
-    return jsonify({"status": "Started pipeline in background (logging to pipeline.log)", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+    return jsonify({"status": "Started pipeline in background", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+
+@app.route('/pipeline-status')
+def pipeline_status():
+    """Returns live pipeline status as JSON for the dashboard status bar."""
+    return jsonify(read_status())
 
 @app.route('/clear', methods=['POST'])
 def clear_database():
@@ -60,4 +66,3 @@ if __name__ == '__main__':
     start_scheduler(interval_hours=6)
     print(f"Starting dashboard...")
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
-

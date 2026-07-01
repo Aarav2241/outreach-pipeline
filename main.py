@@ -11,6 +11,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 from database import init_db, insert_lead, count_extracted_leads_today, is_url_processed, mark_url_processed
 from ingest_funding import scrape_funding_feeds
 from contact_enrichment import enrich_contact
+from pipeline_status import status_start, status_done, status_quota_reached, status_enriching, status_lead_added, status_error
 
 def main():
     print("==========================================================")
@@ -19,11 +20,13 @@ def main():
     
     # 1. Initialize Database & Check Daily Quota
     init_db()
+    status_start()
     
     current_today_count = count_extracted_leads_today()
     print(f"[Quota Enforcer] Current verified extracted leads added today: {current_today_count} / 10")
     if current_today_count >= 10:
         print("[Quota Enforcer] 🎯 Daily quota of 10 verified companies reached! Exiting early to conserve API credits.")
+        status_quota_reached()
         return
 
     # 2. Stream leads: scrape → filter → enrich → store (each lead flows through immediately)
@@ -39,6 +42,7 @@ def main():
         # Check quota at start of each iteration
         if count_extracted_leads_today() >= 10:
             print("\n[Quota Enforcer] 🎯 Reached daily limit of 10 verified extracted leads! Stopping.")
+            status_quota_reached()
             break
 
         company = lead.get('company_name', '').strip()
@@ -54,6 +58,7 @@ def main():
         mark_url_processed(dedup_key)
             
         print(f"\n🔍 Enriching: {company} (Source: {lead.get('funnel_source', 'Unknown')})")
+        status_enriching(company)
         contact_data = enrich_contact(company, lead.get('funnel_source', 'Unknown'), lead.get('key_technology', 'Unknown'))
         
         if not contact_data or not contact_data.get("emails") or contact_data.get("emails") == "N/A":
@@ -81,6 +86,7 @@ def main():
         if inserted:
             new_leads_added += 1
             print(f"✨ ADDED LEAD #{count_extracted_leads_today()}/10 → {company} | Emails: {contact_data['emails']}")
+            status_lead_added(company, count_extracted_leads_today())
         else:
             print(f"🔄 DUPLICATE: {company} (Already in database)")
 
@@ -88,6 +94,7 @@ def main():
     print(f" Pipeline Complete! Scanned {candidates_seen} candidates, added {new_leads_added} new verified companies.")
     print(f" Total verified leads today: {count_extracted_leads_today()} / 10")
     print("==========================================================")
+    status_done(candidates_seen, new_leads_added)
 
 if __name__ == "__main__":
     main()
