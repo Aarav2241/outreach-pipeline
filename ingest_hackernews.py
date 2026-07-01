@@ -20,6 +20,7 @@ def scrape_hackernews():
         for item in items[:20]:
             title = item.find('title').text if item.find('title') is not None else "No Title"
             summary = item.find('description').text if item.find('description') is not None else "No Summary"
+            link = item.find('link').text if item.find('link') is not None and item.find('link').text else "https://news.ycombinator.com"
             
             print(f"[HackerNews] Analyzing: {title}")
             try:
@@ -27,6 +28,7 @@ def scrape_hackernews():
                 if result.get("is_relevant_for_mechanical_hiring"):
                     print(f"  ✅ MATCH: {result.get('company_name')} ({result.get('classification')})")
                     result["funnel_source"] = "Y-Combinator (HackerNews)"
+                    result["source_link"] = link
                     leads.append(result)
                 else:
                     print(f"  ❌ Ignored: {result.get('company_name', 'Unknown')}")

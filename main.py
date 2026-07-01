@@ -112,7 +112,8 @@ def main():
             company_age=firmographics.get("founded_year", lead.get("company_age", "Unknown")),
             company_type=firmographics.get("sector", lead.get("company_type", "Unknown")),
             global_presence=firmographics.get("employee_count", lead.get("global_presence", "Unknown")),
-            enrichment_source=contact_data.get("enrichment_source", "OSINT API")
+            enrichment_source=contact_data.get("enrichment_source", "OSINT API"),
+            source_link=lead.get("source_link", "N/A")
         )
         
         if inserted:

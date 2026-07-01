@@ -19,6 +19,7 @@ def scrape_hackaday():
         for item in items[:15]:
             title = item.find('title').text if item.find('title') is not None else "No Title"
             summary = item.find('description').text if item.find('description') is not None else "No Summary"
+            link = item.find('link').text if item.find('link') is not None and item.find('link').text else "https://hackaday.com"
             
             print(f"[Hackaday] Analyzing: {title}")
             try:
@@ -26,6 +27,7 @@ def scrape_hackaday():
                 if result.get("is_relevant_for_mechanical_hiring"):
                     print(f"  ✅ MATCH: {result.get('company_name')} ({result.get('classification')})")
                     result["funnel_source"] = "Hackaday"
+                    result["source_link"] = link
                     leads.append(result)
                 else:
                     print(f"  ❌ Ignored: {result.get('company_name', 'Unknown')}")

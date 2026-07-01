@@ -83,6 +83,7 @@
                     <tr>
                         <th class="px-4 py-4">Company</th>
                         <th class="px-4 py-4">Source</th>
+                        <th class="px-4 py-4">Source Link</th>
                         <th class="px-4 py-4">Founded</th>
                         <th class="px-4 py-4">Sector / Industry</th>
                         <th class="px-4 py-4">Headcount</th>
@@ -96,6 +97,13 @@
                     <tr class="table-row">
                         <td class="px-4 py-3 font-semibold text-white text-sm">{{ lead.company_name }}</td>
                         <td class="px-4 py-3 text-gray-400">{{ lead.funnel_source }}</td>
+                        <td class="px-4 py-3">
+                            {% if lead.source_link and lead.source_link != 'N/A' %}
+                                <a href="{{ lead.source_link }}" target="_blank" class="text-[var(--accent)] hover:underline text-xs" style="text-decoration: none;">View Source ↗</a>
+                            {% else %}
+                                <span class="text-gray-600">N/A</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-gray-300 age-col">{{ lead.company_age }}</td>
                         <td class="px-4 py-3 text-gray-300 type-col">{{ lead.company_type }}</td>
                         <td class="px-4 py-3 text-gray-300 global-col">{{ lead.global_presence }}</td>

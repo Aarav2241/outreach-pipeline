@@ -46,7 +46,7 @@ def init_db():
     )
     ''')
     
-    for col in ["linkedin_url", "email_pattern", "company_age", "company_type", "global_presence", "enrichment_source"]:
+    for col in ["linkedin_url", "email_pattern", "company_age", "company_type", "global_presence", "enrichment_source", "source_link"]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} TEXT")
         except sqlite3.OperationalError:
@@ -55,7 +55,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def insert_lead(company_name, funnel_source, classification, key_technology, justification, contact_emails, linkedin_url, email_pattern=None, company_age="Unknown", company_type="Unknown", global_presence="Unknown", enrichment_source="OSINT API"):
+def insert_lead(company_name, funnel_source, classification, key_technology, justification, contact_emails, linkedin_url, email_pattern=None, company_age="Unknown", company_type="Unknown", global_presence="Unknown", enrichment_source="OSINT API", source_link="N/A"):
     """Inserts a new lead into the database. Returns True if inserted, False if it already exists."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -63,9 +63,9 @@ def insert_lead(company_name, funnel_source, classification, key_technology, jus
     
     try:
         cursor.execute('''
-        INSERT INTO leads (company_name, funnel_source, classification, key_technology, justification, date_added, contact_emails, linkedin_url, email_pattern, company_age, company_type, global_presence, enrichment_source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (company_name, funnel_source, classification, key_technology, justification, datetime.now().isoformat(), contact_emails, linkedin_url, email_pattern, company_age, company_type, global_presence, enrichment_source))
+        INSERT INTO leads (company_name, funnel_source, classification, key_technology, justification, date_added, contact_emails, linkedin_url, email_pattern, company_age, company_type, global_presence, enrichment_source, source_link)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (company_name, funnel_source, classification, key_technology, justification, datetime.now().isoformat(), contact_emails, linkedin_url, email_pattern, company_age, company_type, global_presence, enrichment_source, source_link))
         conn.commit()
         inserted = True
     except sqlite3.IntegrityError:

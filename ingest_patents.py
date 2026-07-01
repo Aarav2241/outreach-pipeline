@@ -1,5 +1,6 @@
 from ai_filter import analyze_patent
 import time
+import urllib.parse
 
 def scrape_patents():
     """
@@ -37,6 +38,7 @@ def scrape_patents():
             if result.get("is_relevant_for_mechanical_hiring"):
                 print(f"  ✅ KEEP: {result.get('company_name')} ({result.get('classification')})")
                 result["funnel_source"] = "Patent Filings"
+                result["source_link"] = f"https://patents.google.com/?assignee={urllib.parse.quote(raw_data['name'])}"
                 leads.append(result)
             else:
                  print(f"  ❌ DROP: {result.get('company_name')}")

@@ -21,6 +21,7 @@ def scrape_funding_feeds():
             for item in items[:MAX_ARTICLES_PER_FEED]:
                 title = item.find('title').text if item.find('title') is not None else "No Title"
                 summary = item.find('description').text if item.find('description') is not None else "No Summary"
+                link = item.find('link').text if item.find('link') is not None and item.find('link').text else feed_url
                 
                 print(f"[Funding] Analyzing: {title}")
                 try:
@@ -28,6 +29,7 @@ def scrape_funding_feeds():
                     if result.get("is_relevant_for_mechanical_hiring"):
                         print(f"  ✅ MATCH: {result.get('company_name')} ({result.get('classification')})")
                         result["funnel_source"] = "Funding News"
+                        result["source_link"] = link
                         leads.append(result)
                     else:
                          print(f"  ❌ Ignored: {result.get('company_name')}")
