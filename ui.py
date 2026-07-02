@@ -38,29 +38,29 @@ def index():
     leads = get_all_leads()
     return render_template('index.html', leads=leads, last_refresh=get_last_refresh_time())
 
-def is_scraper_running():
-    try:
-        res = subprocess.run(["pgrep", "-f", "main.py"], stdout=subprocess.PIPE, text=True)
-        pids = [p.strip() for p in res.stdout.strip().split() if p.strip().isdigit() and int(p.strip()) != os.getpid()]
-        if len(pids) > 0:
-            return True
-    except Exception:
-        pass
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-    lock_file = os.path.join(os.path.dirname(__file__), "pipeline.lock")
+def is_scraper_running():
+    lock_file = os.path.join(BASE_DIR, "pipeline.lock")
     if os.path.exists(lock_file):
         try:
             with open(lock_file, "r") as f:
-                pid = int(f.read().strip())
+                pid_str = f.read().strip()
+            if not pid_str.isdigit():
+                try: os.remove(lock_file)
+                except Exception: pass
+                return False
+            pid = int(pid_str)
             cmdline_file = f"/proc/{pid}/cmdline"
             if os.path.exists(cmdline_file):
                 with open(cmdline_file, "rb") as f:
                     cmd = f.read().decode('utf-8', errors='ignore')
-                if "main.py" not in cmd:
+                if "python" in cmd and "main.py" in cmd:
+                    return True
+                else:
                     try: os.remove(lock_file)
                     except Exception: pass
                     return False
-                return True
             os.kill(pid, 0)
             return True
         except (OSError, ValueError):
@@ -74,8 +74,10 @@ def sync_leads():
         return jsonify({"status": "⚠️ Pipeline is already running in the background! Please wait for it to finish.", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
     if count_extracted_leads_today() >= 10:
         return jsonify({"status": "🎯 Daily quota of 10 verified companies already reached today! Use 'Clear Old Leads' if you want to test again.", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-    log_file = open("pipeline.log", "a", encoding="utf-8")
-    subprocess.Popen([sys.executable, "main.py"], stdout=log_file, stderr=log_file)
+    log_path = os.path.join(BASE_DIR, "pipeline.log")
+    main_path = os.path.join(BASE_DIR, "main.py")
+    log_file = open(log_path, "a", encoding="utf-8")
+    subprocess.Popen([sys.executable, main_path], stdout=log_file, stderr=log_file, cwd=BASE_DIR)
     return jsonify({"status": "Started pipeline in background", "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
 @app.route('/pipeline-status')

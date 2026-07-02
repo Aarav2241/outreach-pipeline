@@ -13,31 +13,37 @@ from ingest_funding import scrape_funding_feeds
 from contact_enrichment import enrich_contact
 from pipeline_status import status_start, status_done, status_quota_reached, status_enriching, status_lead_added, status_error
 
-LOCK_FILE = os.path.join(os.path.dirname(__file__), "pipeline.lock")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCK_FILE = os.path.join(BASE_DIR, "pipeline.lock")
 
 def acquire_lock():
     if os.path.exists(LOCK_FILE):
         try:
             with open(LOCK_FILE, "r") as f:
-                pid = int(f.read().strip())
-            cmdline_file = f"/proc/{pid}/cmdline"
-            if os.path.exists(cmdline_file):
-                with open(cmdline_file, "rb") as f:
-                    cmd = f.read().decode('utf-8', errors='ignore')
-                if "main.py" not in cmd:
-                    try: os.remove(LOCK_FILE)
-                    except Exception: pass
-                else:
-                    print(f"[Lock Error] Another pipeline instance (PID {pid}) is already running! Exiting immediately.")
-                    return False
+                pid_str = f.read().strip()
+            if not pid_str.isdigit():
+                try: os.remove(LOCK_FILE)
+                except Exception: pass
             else:
-                try:
-                    os.kill(pid, 0)
-                    print(f"[Lock Error] Another pipeline instance (PID {pid}) is already running! Exiting immediately.")
-                    return False
-                except OSError:
-                    try: os.remove(LOCK_FILE)
-                    except Exception: pass
+                pid = int(pid_str)
+                cmdline_file = f"/proc/{pid}/cmdline"
+                if os.path.exists(cmdline_file):
+                    with open(cmdline_file, "rb") as f:
+                        cmd = f.read().decode('utf-8', errors='ignore')
+                    if "python" in cmd and "main.py" in cmd:
+                        print(f"[Lock Error] Another pipeline instance (PID {pid}) is already running! Exiting immediately.")
+                        return False
+                    else:
+                        try: os.remove(LOCK_FILE)
+                        except Exception: pass
+                else:
+                    try:
+                        os.kill(pid, 0)
+                        print(f"[Lock Error] Another pipeline instance (PID {pid}) is already running! Exiting immediately.")
+                        return False
+                    except OSError:
+                        try: os.remove(LOCK_FILE)
+                        except Exception: pass
         except Exception:
             try: os.remove(LOCK_FILE)
             except Exception: pass
