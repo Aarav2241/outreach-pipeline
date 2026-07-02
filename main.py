@@ -80,66 +80,66 @@ def main():
             status_quota_reached()
             return
 
-    # 2. Stream leads: scrape → filter → enrich → store (each lead flows through immediately)
-    print("\n--- STREAMING PIPELINE: Scrape → AI Filter → Enrich → Store ---")
-    print("    (Leads appear on the dashboard as soon as each one is processed)\n")
-    
-    new_leads_added = 0
-    candidates_seen = 0
-    
-    for lead in scrape_funding_feeds():
-        candidates_seen += 1
+        # 2. Stream leads: scrape → filter → enrich → store (each lead flows through immediately)
+        print("\n--- STREAMING PIPELINE: Scrape → AI Filter → Enrich → Store ---")
+        print("    (Leads appear on the dashboard as soon as each one is processed)\n")
         
-        # Check quota at start of each iteration
-        if count_extracted_leads_today() >= 10:
-            print("\n[Quota Enforcer] 🎯 Reached daily limit of 10 verified extracted leads! Stopping.")
-            status_quota_reached()
-            break
-
-        company = lead.get('company_name', '').strip()
-        if not company or company.lower() in ["none", "not specified", "unknown"]:
-            print(f"❌ DROPPING INVALID COMPANY NAME: {company}")
-            continue
+        new_leads_added = 0
+        candidates_seen = 0
+        
+        for lead in scrape_funding_feeds():
+            candidates_seen += 1
             
-        print(f"\n🔍 Enriching: {company} (Source: {lead.get('funnel_source', 'Unknown')})")
-        status_enriching(company)
-        contact_data = enrich_contact(company, lead.get('funnel_source', 'Unknown'), lead.get('key_technology', 'Unknown'))
-        
-        if not contact_data or not contact_data.get("emails") or contact_data.get("emails") == "N/A":
-            print(f"❌ DROPPING LEAD: {company} (No extracted emails found)")
-            continue
-        
-        firmographics = contact_data.get("firmographics", {})
-        
-        inserted = insert_lead(
-            company_name=company,
-            funnel_source=lead.get('funnel_source', 'Unknown'),
-            classification=lead.get('classification', 'Unknown'),
-            key_technology=lead.get('key_technology', 'Unknown'),
-            justification=lead.get('justification', 'N/A'),
-            contact_emails=contact_data["emails"],
-            linkedin_url=contact_data["linkedin_url"],
-            email_pattern=contact_data.get("email_pattern"),
-            company_age=firmographics.get("founded_year", lead.get("company_age", "Unknown")),
-            company_type=firmographics.get("sector", lead.get("company_type", "Unknown")),
-            global_presence=firmographics.get("employee_count", lead.get("global_presence", "Unknown")),
-            enrichment_source=contact_data.get("enrichment_source", "OSINT API"),
-            source_link=lead.get("source_link", "N/A")
-        )
-        
-        if inserted:
-            new_leads_added += 1
-            print(f"✨ ADDED LEAD #{count_extracted_leads_today()}/10 → {company} | Emails: {contact_data['emails']}")
-            status_lead_added(company, count_extracted_leads_today())
-        else:
-            print(f"🔄 DUPLICATE: {company} (Already in database)")
+            # Check quota at start of each iteration
+            if count_extracted_leads_today() >= 10:
+                print("\n[Quota Enforcer] 🎯 Reached daily limit of 10 verified extracted leads! Stopping.")
+                status_quota_reached(candidates_seen, new_leads_added)
+                return
+            
+            company = lead['company']
+            print(f"\n[{candidates_seen}] Processing candidate: {company}...")
+            
+            # Enrich contact data (Clearbit → Hunter/Pattern → Generic Validation)
+            print(f"  → Finding decision-maker emails for {company}...")
+            status_enriching(company, candidates_seen)
+            contact_data = enrich_contact(company, lead.get("source_link"))
+            
+            if not contact_data or not contact_data.get("emails") or contact_data.get("emails") == "Not found":
+                print(f"  ⏭️ Skipping {company} — No valid email addresses found.")
+                continue
+            
+            firmographics = contact_data.get("firmographics", {})
+            
+            inserted = insert_lead(
+                company_name=company,
+                funnel_source=lead.get('funnel_source', 'Unknown'),
+                classification=lead.get('classification', 'Unknown'),
+                key_technology=lead.get('key_technology', 'Unknown'),
+                justification=lead.get('justification', 'N/A'),
+                contact_emails=contact_data["emails"],
+                linkedin_url=contact_data["linkedin_url"],
+                email_pattern=contact_data.get("email_pattern"),
+                company_age=firmographics.get("founded_year", lead.get("company_age", "Unknown")),
+                company_type=firmographics.get("sector", lead.get("company_type", "Unknown")),
+                global_presence=firmographics.get("employee_count", lead.get("global_presence", "Unknown")),
+                enrichment_source=contact_data.get("enrichment_source", "OSINT API"),
+                source_link=lead.get("source_link", "N/A")
+            )
+            
+            if inserted:
+                new_leads_added += 1
+                print(f"✨ ADDED LEAD #{count_extracted_leads_today()}/10 → {company} | Emails: {contact_data['emails']}")
+                status_lead_added(company, count_extracted_leads_today())
+            else:
+                print(f"🔄 DUPLICATE: {company} (Already in database)")
 
-    print("\n==========================================================")
-    print(f" Pipeline Complete! Scanned {candidates_seen} candidates, added {new_leads_added} new verified companies.")
-    print(f" Total verified leads today: {count_extracted_leads_today()} / 10")
-    print("==========================================================")
-    status_done(candidates_seen, new_leads_added)
-    release_lock()
+        print("\n==========================================================")
+        print(f" Pipeline Complete! Scanned {candidates_seen} candidates, added {new_leads_added} new verified companies.")
+        print(f" Total verified leads today: {count_extracted_leads_today()} / 10")
+        print("==========================================================")
+        status_done(candidates_seen, new_leads_added)
+    finally:
+        release_lock()
 
 if __name__ == "__main__":
     main()
